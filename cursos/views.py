@@ -1,6 +1,7 @@
-from django.shortcuts import reverse, render,get_object_or_404
+from django.shortcuts import redirect, reverse, render,get_object_or_404
 from django.views.generic.edit import CreateView, UpdateView
 from django.db.utils import IntegrityError
+from django.http import HttpResponse, JsonResponse
 
 from .models import Curso, CursoLikes
 from .forms import CursoModelForm
@@ -15,6 +16,7 @@ def listar_cursos(request):
     cursos = Curso.objects.all().order_by(ordem)
     context = {
         'cursos': cursos,
+        'likes': CursoLikes.objects.filter(user=request.user),
     }
     return render(request, 'cursos/listar_cursos.html', context)
 
@@ -56,5 +58,22 @@ def like_curso(request, pk):
         context = {
             'mensagem': ':('
         }
+    return redirect (reverse('cursos.listar.tudo'))
+    # return render(request, "cursos/like_concluido.html", context)
+def api_like_curso(request, pk):
+    curso = get_object_or_404(Curso, id=pk)
+    try: 
+        CursoLikes.objects.create(user=request.user, curso=curso)
+        resposta = {
+            'like': True,
+        }
 
-    return render(request, "cursos/like_concluido.html", context)
+    except IntegrityError as error:
+        CursoLikes.objects.get(user=request.user, curso=curso).delete()
+        resposta = {
+            'like': False,
+        }
+
+    resposta['likes'] = curso.likes.count()
+    #return HttpResponse (resposta, content_type='application/json')
+    return JsonResponse (resposta)
